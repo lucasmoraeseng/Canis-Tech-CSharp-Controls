@@ -1,0 +1,9 @@
+C:\Users\brsiluca\Documents\GitHub\Canis-Tech-CSharp-Controls\CT-Controls\bin\Debug\CT-Controls.dll
+C:\Users\brsiluca\Documents\GitHub\Canis-Tech-CSharp-Controls\CT-Controls\bin\Debug\CT-Controls.pdb
+C:\Users\brsiluca\Documents\GitHub\Canis-Tech-CSharp-Controls\CT-Controls\obj\Debug\CT-Controls.csproj.AssemblyReference.cache
+C:\Users\brsiluca\Documents\GitHub\Canis-Tech-CSharp-Controls\CT-Controls\obj\Debug\CT_Controls.NumericDisplay.resources
+C:\Users\brsiluca\Documents\GitHub\Canis-Tech-CSharp-Controls\CT-Controls\obj\Debug\CT_Controls.RoundLed.resources
+C:\Users\brsiluca\Documents\GitHub\Canis-Tech-CSharp-Controls\CT-Controls\obj\Debug\CT-Controls.csproj.GenerateResource.cache
+C:\Users\brsiluca\Documents\GitHub\Canis-Tech-CSharp-Controls\CT-Controls\obj\Debug\CT-Controls.csproj.CoreCompileInputs.cache
+C:\Users\brsiluca\Documents\GitHub\Canis-Tech-CSharp-Controls\CT-Controls\obj\Debug\CT-Controls.dll
+C:\Users\brsiluca\Documents\GitHub\Canis-Tech-CSharp-Controls\CT-Controls\obj\Debug\CT-Controls.pdb
