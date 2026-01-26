@@ -1,69 +1,214 @@
-using System;
+﻿using System;
+using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 using System.Windows.Forms;
 
 namespace CT_Controls
 {
+    [ToolboxItem(true)]
+    [DefaultEvent(nameof(ColorChanged))]
+    [DefaultProperty(nameof(SelectedColor))]
     public partial class ColorWheel : UserControl
     {
-        Bitmap _bitmap;
-        bool _mouseDown;
-        Point _lastPos;
-        // Hue 0..360, Saturation 0..1 (radial)
-        public float Hue { get; set; } = 0f;
-        public float Saturation { get; set; } = 0f;
+        private Bitmap _bitmap;
+        private bool _mouseDown;
 
-        // Fired when user changes hue/saturation via mouse.
-        public event Action<float, float> ColorChanged;
+        private float _hue = 0f;        // 0..360
+        private float _saturation = 0f; // 0..1
+
+        private const float CENTER_DEADZONE_RATIO = 0.03f;
 
         public ColorWheel()
         {
-            DoubleBuffered = true;
+            InitializeComponent();
+
+            // IMPORTANT: real transparency in WinForms
+            SetStyle(
+                ControlStyles.UserPaint |
+                ControlStyles.AllPaintingInWmPaint |
+                ControlStyles.OptimizedDoubleBuffer |
+                ControlStyles.SupportsTransparentBackColor,
+                true);
+
+            BackColor = Color.Transparent;
+
             MinimumSize = new Size(64, 64);
             Resize += (s, e) => RecreateBitmap();
         }
 
+        // =========================
+        // Properties
+        // =========================
+
+        [Category("Color")]
+        [Description("Hue component of the color (0 to 360 degrees).")]
+        [DefaultValue(0f)]
+        public float Hue
+        {
+            get => _hue;
+            set
+            {
+                float v = value % 360f;
+                if (v < 0) v += 360f;
+
+                if (Math.Abs(_hue - v) < float.Epsilon)
+                    return;
+
+                _hue = v;
+                OnColorChanged();
+                Invalidate();
+            }
+        }
+
+        [Category("Color")]
+        [Description("Saturation level of the color (0.0 to 1.0).")]
+        [DefaultValue(0f)]
+        public float Saturation
+        {
+            get => _saturation;
+            set
+            {
+                float v = Math.Max(0f, Math.Min(1f, value));
+
+                if (Math.Abs(_saturation - v) < float.Epsilon)
+                    return;
+
+                _saturation = v;
+                OnColorChanged();
+                Invalidate();
+            }
+        }
+
+        [Category("Color")]
+        [Description("Currently selected color.")]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public Color SelectedColor
+        {
+            get => HSVToRGB(Hue, Saturation, 1f);
+        }
+
+        // =========================
+        // Event
+        // =========================
+
+        [Category("Property Changed")]
+        [Description("Occurs when the selected color changes.")]
+        public event EventHandler ColorChanged;
+
+        protected virtual void OnColorChanged()
+        {
+            ColorChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        // =========================
+        // Painting
+        // =========================
+
         protected override void OnPaint(PaintEventArgs e)
         {
-            base.OnPaint(e);
+            // DO NOT call base.OnPaint or OnPaintBackground
+            // This prevents WinForms from clearing the background
 
             if (_bitmap != null)
             {
-                var cx = (Width - _bitmap.Width) / 2;
-                var cy = (Height - _bitmap.Height) / 2;
+                int cx = (Width - _bitmap.Width) / 2;
+                int cy = (Height - _bitmap.Height) / 2;
+
                 e.Graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
-                e.Graphics.DrawImage(_bitmap, cx, cy, _bitmap.Width, _bitmap.Height);
+                e.Graphics.SmoothingMode = SmoothingMode.HighQuality;
+                e.Graphics.DrawImageUnscaled(_bitmap, cx, cy);
             }
 
-            // draw selector
+            DrawSelector(e.Graphics);
+        }
+
+        private void DrawSelector(Graphics g)
+        {
             var center = new PointF(Width / 2f, Height / 2f);
             float radius = Math.Min(Width, Height) * 0.5f * 0.95f;
             float satRadius = Saturation * radius;
             float rad = (float)(Hue * Math.PI / 180.0);
-            var selX = center.X + (float)(Math.Cos(rad) * satRadius);
-            var selY = center.Y + (float)(Math.Sin(rad) * satRadius);
 
-            using (var pen = new Pen(Color.FromArgb(220, Color.Black), 2f))
+            float x = center.X + (float)Math.Cos(rad) * satRadius;
+            float y = center.Y + (float)Math.Sin(rad) * satRadius;
+
+            using (var outer = new Pen(Color.FromArgb(220, Color.Black), 2f))
+            using (var inner = new Pen(Color.FromArgb(200, Color.White), 1f))
             {
-                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-                e.Graphics.DrawEllipse(pen, selX - 6, selY - 6, 12, 12);
-                using (var inner = new Pen(Color.FromArgb(200, Color.White), 1f))
-                    e.Graphics.DrawEllipse(inner, selX - 5, selY - 5, 10, 10);
+                g.DrawEllipse(outer, x - 6, y - 6, 12, 12);
+                g.DrawEllipse(inner, x - 5, y - 5, 10, 10);
             }
         }
 
-        void RecreateBitmap()
+        // =========================
+        // Mouse
+        // =========================
+
+        protected override void OnMouseDown(MouseEventArgs e)
         {
-            var size = Math.Min(Width, Height);
+            _mouseDown = true;
+            Capture = true;
+            UpdateFromPoint(e.Location);
+        }
+
+        protected override void OnMouseMove(MouseEventArgs e)
+        {
+            if (_mouseDown)
+                UpdateFromPoint(e.Location);
+        }
+
+        protected override void OnMouseUp(MouseEventArgs e)
+        {
+            _mouseDown = false;
+            Capture = false;
+        }
+
+        private void UpdateFromPoint(Point p)
+        {
+            var center = new PointF(Width / 2f, Height / 2f);
+
+            float dx = p.X - center.X;
+            float dy = p.Y - center.Y;
+
+            float angle = (float)Math.Atan2(dy, dx);
+            float hue = angle * 180f / (float)Math.PI;
+            if (hue < 0) hue += 360f;
+
+            float radius = (float)Math.Sqrt(dx * dx + dy * dy);
+            float maxR = Math.Min(Width, Height) * 0.5f * 0.95f;
+            float deadzone = maxR * CENTER_DEADZONE_RATIO;
+
+            float sat = radius <= deadzone
+                ? 0f
+                : Math.Min(1f, radius / maxR);
+
+            Hue = hue;
+            Saturation = sat;
+        }
+
+        // =========================
+        // Bitmap generation
+        // =========================
+
+        private void RecreateBitmap()
+        {
+            int size = Math.Min(Width, Height);
             if (size <= 0) return;
 
             _bitmap?.Dispose();
-            _bitmap = new Bitmap(size, size, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+            _bitmap = new Bitmap(size, size, PixelFormat.Format32bppArgb);
 
-            var cx = size / 2f;
-            var cy = size / 2f;
-            var maxR = size * 0.5f * 0.95f; // leave small margin
+            using (Graphics g = Graphics.FromImage(_bitmap))
+            {
+                g.Clear(Color.Transparent);
+            }
+
+            float cx = size / 2f;
+            float cy = size / 2f;
+            float maxR = size * 0.5f * 0.95f;
+            float deadzone = maxR * CENTER_DEADZONE_RATIO;
 
             for (int y = 0; y < size; y++)
             {
@@ -72,84 +217,47 @@ namespace CT_Controls
                     float dx = x - cx;
                     float dy = y - cy;
                     float dist = (float)Math.Sqrt(dx * dx + dy * dy);
+
                     if (dist > maxR)
-                    {
-                        _bitmap.SetPixel(x, y, Color.Transparent);
                         continue;
-                    }
-                    // angle to hue
-                    float angle = (float)(Math.Atan2(dy, dx)); // -pi..pi
+
+                    float angle = (float)Math.Atan2(dy, dx);
                     float hue = angle * 180f / (float)Math.PI;
                     if (hue < 0) hue += 360f;
-                    float saturation = Math.Min(1f, dist / maxR);
-                    // value fixed at 1
-                    var c = HSVToRGB(hue, saturation, 1f);
-                    _bitmap.SetPixel(x, y, c);
+
+                    float sat = dist <= deadzone ? 0f : Math.Min(1f, dist / maxR);
+                    Color c = HSVToRGB(hue, sat, 1f);
+
+                    _bitmap.SetPixel(x, y, Color.FromArgb(255, c));
                 }
             }
 
             Invalidate();
         }
 
-        protected override void OnMouseDown(MouseEventArgs e)
-        {
-            base.OnMouseDown(e);
-            _mouseDown = true;
-            Capture = true;
-            UpdateFromPoint(e.Location);
-        }
+        // =========================
+        // Helpers
+        // =========================
 
-        protected override void OnMouseMove(MouseEventArgs e)
+        private static Color HSVToRGB(float h, float s, float v)
         {
-            base.OnMouseMove(e);
-            if (_mouseDown)
+            if (s <= 0f)
             {
-                UpdateFromPoint(e.Location);
+                int val = Clamp((int)(v * 255));
+                return Color.FromArgb(val, val, val);
             }
-        }
 
-        protected override void OnMouseUp(MouseEventArgs e)
-        {
-            base.OnMouseUp(e);
-            _mouseDown = false;
-            Capture = false;
-        }
-
-        void UpdateFromPoint(Point p)
-        {
-            var center = new PointF(Width / 2f, Height / 2f);
-            float dx = p.X - center.X;
-            float dy = p.Y - center.Y;
-            float angle = (float)Math.Atan2(dy, dx); // -pi..pi
-            float hue = angle * 180f / (float)Math.PI;
-            if (hue < 0) hue += 360f;
-            float radius = (float)Math.Sqrt(dx * dx + dy * dy);
-            float maxR = Math.Min(Width, Height) * 0.5f * 0.95f;
-            float sat = Math.Max(0f, Math.Min(1f, radius / maxR));
-
-            Hue = hue;
-            Saturation = sat;
-            ColorChanged?.Invoke(Hue, Saturation);
-            Invalidate();
-        }
-
-        static Color HSVToRGB(float h, float s, float v)
-        {
-            if (s <= 0f) return Color.FromArgb(
-                Clamp((int)(v * 255)),
-                Clamp((int)(v * 255)),
-                Clamp((int)(v * 255)));
-
-            h = h % 360f;
-            if (h < 0) h += 360f;
+            h = (h % 360 + 360) % 360;
             float hf = h / 60f;
             int i = (int)Math.Floor(hf);
             float f = hf - i;
+
             float p = v * (1f - s);
             float q = v * (1f - s * f);
             float t = v * (1f - s * (1f - f));
 
             float r = 0, g = 0, b = 0;
+
             switch (i)
             {
                 case 0: r = v; g = t; b = p; break;
@@ -159,10 +267,14 @@ namespace CT_Controls
                 case 4: r = t; g = p; b = v; break;
                 default: r = v; g = p; b = q; break;
             }
-            return Color.FromArgb(Clamp((int)(r * 255f)), Clamp((int)(g * 255f)), Clamp((int)(b * 255f)));
+
+            return Color.FromArgb(
+                Clamp((int)(r * 255)),
+                Clamp((int)(g * 255)),
+                Clamp((int)(b * 255)));
         }
 
-        static int Clamp(int v)
+        private static int Clamp(int v)
         {
             if (v < 0) return 0;
             if (v > 255) return 255;

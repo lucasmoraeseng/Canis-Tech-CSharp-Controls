@@ -1,6 +1,6 @@
 ﻿namespace CT_Controls
 {
-    partial class ColorPicker
+    partial class ColorWheel
     {
         /// <summary> 
         /// Variável de designer necessária.
@@ -28,19 +28,16 @@
         /// </summary>
         private void InitializeComponent()
         {
+            components = new System.ComponentModel.Container();
+            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.SuspendLayout();
             // 
-            // ColorPicker
+            // ColorWheel
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.Transparent;
-            this.Name = "ColorPicker1";
-            this.Size = new System.Drawing.Size(256, 250);
-            this.SliderCursorSize = SliderCursorSize.Small;
-            this.SliderColor = System.Drawing.Color.Black;
+            this.DoubleBuffered = true;
+            this.Name = "ColorWheel";
             this.ResumeLayout(false);
-
         }
 
         #endregion

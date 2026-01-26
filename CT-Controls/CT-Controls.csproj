@@ -51,6 +51,9 @@
     <Compile Include="ColorWheel.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="ColorWheel.Designer.cs">
+      <DependentUpon>ColorWheel.cs</DependentUpon>
+    </Compile>
     <Compile Include="NumericDisplay.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -64,6 +67,9 @@
       <DependentUpon>RoundLed.cs</DependentUpon>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SaturationSlider.Designer.cs">
+      <DependentUpon>SaturationSlider.cs</DependentUpon>
+    </Compile>
     <Compile Include="SaturationSlider.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -78,6 +84,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="RoundLed.resx">
       <DependentUpon>RoundLed.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="SaturationSlider.resx">
+      <DependentUpon>SaturationSlider.cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
