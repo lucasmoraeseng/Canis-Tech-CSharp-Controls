@@ -7,3 +7,4 @@ C:\Users\brsiluca\Documents\GitHub\Canis-Tech-CSharp-Controls\CT-Controls\obj\De
 C:\Users\brsiluca\Documents\GitHub\Canis-Tech-CSharp-Controls\CT-Controls\obj\Debug\CT-Controls.csproj.CoreCompileInputs.cache
 C:\Users\brsiluca\Documents\GitHub\Canis-Tech-CSharp-Controls\CT-Controls\obj\Debug\CT-Controls.dll
 C:\Users\brsiluca\Documents\GitHub\Canis-Tech-CSharp-Controls\CT-Controls\obj\Debug\CT-Controls.pdb
+C:\Users\brsiluca\Documents\GitHub\Canis-Tech-CSharp-Controls\CT-Controls\obj\Debug\CT_Controls.ColorPicker.resources
