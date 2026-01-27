@@ -35,6 +35,7 @@ namespace CT_Controls
 
         }
 
+
         // ============================================================
         // HSV STATE (read-only from outside)
         // ============================================================
@@ -67,9 +68,7 @@ namespace CT_Controls
         {
             ColorChanged?.Invoke(this, EventArgs.Empty);
         }
-
-
-        
+                      
 
         // ============================================================
         // INTERNAL LOGIC
@@ -85,6 +84,7 @@ namespace CT_Controls
             var picker = (ColorPickerCircular)sender;
             _color = picker.SelectedColor;
         }
+
 
         // ============================================================
         // CONVENIENCE PROPERTIES
@@ -107,6 +107,18 @@ namespace CT_Controls
         /// </summary>
         [Browsable(false)]
         public string Hex => $"#{Color.R:X2}{Color.G:X2}{Color.B:X2}";
+
+        // ============================================================
+        // Pass-through PROPERTIES
+        // ============================================================
+        [Category("Style")]
+        [Description("Width of circular picker")]
+        public float CircularPickerWidth
+        {
+            get => _circularPicker.CircularWidth;
+            set => _circularPicker.CircularWidth = value;
+        }
+
 
         // ============================================================
         // PUBLIC METHODS
@@ -159,6 +171,19 @@ namespace CT_Controls
             if (v < 0) return 0;
             if (v > 255) return 255;
             return v;
+        }
+
+        private void _circularPicker_Resize(object sender, EventArgs e)
+        {
+            base.OnResize(e);
+
+            int size = Math.Min(Width, Height);
+
+            int ringThickness = (int)(size * 0.2f);
+
+           _circularPicker.Padding = new Padding(ringThickness);
+
+            Invalidate();
         }
     }
 }

@@ -40,27 +40,27 @@ namespace CT_Controls
             this._circularPicker.BackColor = System.Drawing.Color.Transparent;
             this._circularPicker.Controls.Add(this._wheel);
             this._circularPicker.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._circularPicker.Hue = 0F;
+            this._circularPicker.Hue = 1F;
             this._circularPicker.Location = new System.Drawing.Point(0, 0);
             this._circularPicker.MinimumSize = new System.Drawing.Size(50, 50);
             this._circularPicker.Name = "_circularPicker";
             this._circularPicker.Padding = new System.Windows.Forms.Padding(10);
             this._circularPicker.Size = new System.Drawing.Size(50, 50);
             this._circularPicker.TabIndex = 1;
+            this._circularPicker.Resize += new System.EventHandler(this._circularPicker_Resize);
             // 
             // _wheel
             // 
-            this._wheel.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
             this._wheel.BackColor = System.Drawing.Color.Transparent;
             this._wheel.Dock = System.Windows.Forms.DockStyle.Fill;
             this._wheel.Location = new System.Drawing.Point(10, 10);
             this._wheel.MinimumSize = new System.Drawing.Size(20, 20);
             this._wheel.Name = "_wheel";
-            this._wheel.R = 6.857097E-19F;
-            this._wheel.SelectedColor = System.Drawing.Color.FromArgb(((int)(((byte)(127)))), ((int)(((byte)(127)))), ((int)(((byte)(127)))));
-            this._wheel.Size = new System.Drawing.Size(50, 50);
+            this._wheel.R = 1F;
+            this._wheel.SelectedColor = System.Drawing.Color.FromArgb(((int)(((byte)(255)))), ((int)(((byte)(0)))), ((int)(((byte)(0)))));
+            this._wheel.Size = new System.Drawing.Size(30, 30);
             this._wheel.TabIndex = 0;
-            this._wheel.Theta = 18.43494F;
+            this._wheel.Theta = 90F;
             // 
             // ColorPicker
             // 
