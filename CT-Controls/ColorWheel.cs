@@ -15,27 +15,23 @@ namespace CT_Controls
         private Bitmap _bitmap;
         private bool _mouseDown;
 
-        private float _hue = 0f;        // 0..360
-        private float _saturation = 0f; // 0..1
-
-        private const float CENTER_DEADZONE_RATIO = 0.03f;
+        private float _r = 0f;          // 0..1
+        private float _theta = 0f;      // 0..360
+        private Color _color = new Color();
 
         public ColorWheel()
         {
             InitializeComponent();
 
-            // IMPORTANT: real transparency in WinForms
-            SetStyle(
-                ControlStyles.UserPaint |
-                ControlStyles.AllPaintingInWmPaint |
-                ControlStyles.OptimizedDoubleBuffer |
-                ControlStyles.SupportsTransparentBackColor,
-                true);
+            SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint |
+                     ControlStyles.OptimizedDoubleBuffer | ControlStyles.SupportsTransparentBackColor, true);
 
             BackColor = Color.Transparent;
-
+            DoubleBuffered = true;
             MinimumSize = new Size(64, 64);
+
             Resize += (s, e) => RecreateBitmap();
+            HandleCreated += (s, e) => RecreateBitmap();
         }
 
         // =========================
@@ -43,50 +39,57 @@ namespace CT_Controls
         // =========================
 
         [Category("Color")]
-        [Description("Hue component of the color (0 to 360 degrees).")]
-        [DefaultValue(0f)]
-        public float Hue
+        [Description("Get color selected from controller")]
+        public Color SelectedColor
         {
-            get => _hue;
+            get => _color;
             set
             {
-                float v = value % 360f;
-                if (v < 0) v += 360f;
-
-                if (Math.Abs(_hue - v) < float.Epsilon)
-                    return;
-
-                _hue = v;
+                _color = value;
+                RThetaFromColor(_color, out _r, out _theta);
                 OnColorChanged();
                 Invalidate();
             }
-        }
+        }        
 
         [Category("Color")]
-        [Description("Saturation level of the color (0.0 to 1.0).")]
+        [Description("R value from 0 to 1")]
         [DefaultValue(0f)]
-        public float Saturation
+        public float R
         {
-            get => _saturation;
+            get => _r;
             set
             {
                 float v = Math.Max(0f, Math.Min(1f, value));
 
-                if (Math.Abs(_saturation - v) < float.Epsilon)
+                if (Math.Abs(_r - v) < float.Epsilon)
                     return;
 
-                _saturation = v;
+                _r = v;
+                _color = RGBFromRTheta( _r, _theta);
                 OnColorChanged();
                 Invalidate();
             }
         }
 
         [Category("Color")]
-        [Description("Currently selected color.")]
-        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-        public Color SelectedColor
+        [Description("Theta value from 0 to 360")]
+        [DefaultValue(0f)]
+        public float Theta
         {
-            get => HSVToRGB(Hue, Saturation, 1f);
+            get => _theta;
+            set
+            {
+                float v = ((value % 360f) + 360f) % 360f;
+
+                if (Math.Abs(_theta - v) < float.Epsilon)
+                    return;
+
+                _theta = v;
+                _color = RGBFromRTheta(_r, _theta);
+                OnColorChanged();
+                Invalidate();
+            }
         }
 
         // =========================
@@ -106,11 +109,14 @@ namespace CT_Controls
         // Painting
         // =========================
 
+        protected override void OnSizeChanged(EventArgs e)
+        {
+            base.OnSizeChanged(e);
+            RecreateBitmap();
+        }
+
         protected override void OnPaint(PaintEventArgs e)
         {
-            // DO NOT call base.OnPaint or OnPaintBackground
-            // This prevents WinForms from clearing the background
-
             if (_bitmap != null)
             {
                 int cx = (Width - _bitmap.Width) / 2;
@@ -122,17 +128,18 @@ namespace CT_Controls
             }
 
             DrawSelector(e.Graphics);
+
         }
 
         private void DrawSelector(Graphics g)
         {
             var center = new PointF(Width / 2f, Height / 2f);
             float radius = Math.Min(Width, Height) * 0.5f * 0.95f;
-            float satRadius = Saturation * radius;
-            float rad = (float)(Hue * Math.PI / 180.0);
+            float satRadius = _r * radius;
+            float rad = (float)(_theta * Math.PI / 180.0);
 
             float x = center.X + (float)Math.Cos(rad) * satRadius;
-            float y = center.Y + (float)Math.Sin(rad) * satRadius;
+            float y = center.Y + ((float)Math.Sin(rad) * satRadius * -1f);
 
             using (var outer = new Pen(Color.FromArgb(220, Color.Black), 2f))
             using (var inner = new Pen(Color.FromArgb(200, Color.White), 1f))
@@ -148,6 +155,7 @@ namespace CT_Controls
 
         protected override void OnMouseDown(MouseEventArgs e)
         {
+            base.OnMouseDown(e);
             _mouseDown = true;
             Capture = true;
             UpdateFromPoint(e.Location);
@@ -155,12 +163,14 @@ namespace CT_Controls
 
         protected override void OnMouseMove(MouseEventArgs e)
         {
+            base.OnMouseMove(e);
             if (_mouseDown)
                 UpdateFromPoint(e.Location);
         }
 
         protected override void OnMouseUp(MouseEventArgs e)
         {
+            base.OnMouseUp(e);
             _mouseDown = false;
             Capture = false;
         }
@@ -169,29 +179,22 @@ namespace CT_Controls
         {
             var center = new PointF(Width / 2f, Height / 2f);
 
-            float dx = p.X - center.X;
-            float dy = p.Y - center.Y;
+            double dx = p.X - center.X;
+            double dy = p.Y - center.Y;
 
-            float angle = (float)Math.Atan2(dy, dx);
-            float hue = angle * 180f / (float)Math.PI;
-            if (hue < 0) hue += 360f;
+            double angle = Math.Atan2(dy, dx);
+            double radius = Math.Sqrt(Math.Pow(dx,2) + Math.Pow(dy, 2));
 
-            float radius = (float)Math.Sqrt(dx * dx + dy * dy);
-            float maxR = Math.Min(Width, Height) * 0.5f * 0.95f;
-            float deadzone = maxR * CENTER_DEADZONE_RATIO;
+            _r = (float)radius;
+            _theta = (float)(angle * 180.0 / Math.PI);
 
-            float sat = radius <= deadzone
-                ? 0f
-                : Math.Min(1f, radius / maxR);
-
-            Hue = hue;
-            Saturation = sat;
+            OnColorChanged();
+            Invalidate();
         }
 
         // =========================
         // Bitmap generation
         // =========================
-
         private void RecreateBitmap()
         {
             int size = Math.Min(Width, Height);
@@ -208,7 +211,11 @@ namespace CT_Controls
             float cx = size / 2f;
             float cy = size / 2f;
             float maxR = size * 0.5f * 0.95f;
-            float deadzone = maxR * CENTER_DEADZONE_RATIO;
+
+            // Constantes dos deslocamentos de fase (120° e 240°)
+            const double SHIFT_BM = Math.PI / 2.0;      // 90°
+            const double SHIFT_G = 2.0 * Math.PI / 3.0; // 120°
+            const double SHIFT_B = 4.0 * Math.PI / 3.0; // 240°
 
             for (int y = 0; y < size; y++)
             {
@@ -221,14 +228,28 @@ namespace CT_Controls
                     if (dist > maxR)
                         continue;
 
-                    float angle = (float)Math.Atan2(dy, dx);
-                    float hue = angle * 180f / (float)Math.PI;
-                    if (hue < 0) hue += 360f;
+                    // Ângulo em radianos
+                    double theta = Math.Atan2(dy, dx); // [-π, π] está ok para cos()
 
-                    float sat = dist <= deadzone ? 0f : Math.Min(1f, dist / maxR);
-                    Color c = HSVToRGB(hue, sat, 1f);
+                    // r normalizado (0 no centro, 1 na borda), com deadzone no centro
+                    float sat = Math.Min(1f, dist / maxR);
+                    double r = sat;
 
-                    _bitmap.SetPixel(x, y, Color.FromArgb(255, c));
+                    // --- Fórmula do Python (coseno com deslocamentos) ---
+                    double r_ = Math.Cos(theta + SHIFT_BM) * r + 0.5;
+                    double g_ = Math.Cos(theta - SHIFT_G + SHIFT_BM) * r + 0.5;
+                    double b_ = Math.Cos(theta - SHIFT_B + SHIFT_BM) * r + 0.5;
+
+                    // Clamping 0..1
+                    r_ = (r_ < 0) ? 0 : (r_ > 1 ? 1 : r_);
+                    g_ = (g_ < 0) ? 0 : (g_ > 1 ? 1 : g_);
+                    b_ = (b_ < 0) ? 0 : (b_ > 1 ? 1 : b_);
+
+                    int R = (int)Math.Round(r_ * 255.0);
+                    int G = (int)Math.Round(g_ * 255.0);
+                    int B = (int)Math.Round(b_ * 255.0);
+
+                    _bitmap.SetPixel(x, y, Color.FromArgb(255, R, G, B));
                 }
             }
 
@@ -239,46 +260,95 @@ namespace CT_Controls
         // Helpers
         // =========================
 
-        private static Color HSVToRGB(float h, float s, float v)
-        {
-            if (s <= 0f)
-            {
-                int val = Clamp((int)(v * 255));
-                return Color.FromArgb(val, val, val);
-            }
-
-            h = (h % 360 + 360) % 360;
-            float hf = h / 60f;
-            int i = (int)Math.Floor(hf);
-            float f = hf - i;
-
-            float p = v * (1f - s);
-            float q = v * (1f - s * f);
-            float t = v * (1f - s * (1f - f));
-
-            float r = 0, g = 0, b = 0;
-
-            switch (i)
-            {
-                case 0: r = v; g = t; b = p; break;
-                case 1: r = q; g = v; b = p; break;
-                case 2: r = p; g = v; b = t; break;
-                case 3: r = p; g = q; b = v; break;
-                case 4: r = t; g = p; b = v; break;
-                default: r = v; g = p; b = q; break;
-            }
-
-            return Color.FromArgb(
-                Clamp((int)(r * 255)),
-                Clamp((int)(g * 255)),
-                Clamp((int)(b * 255)));
-        }
-
         private static int Clamp(int v)
         {
             if (v < 0) return 0;
             if (v > 255) return 255;
             return v;
+        }
+
+        private static double Rad2Deg(double rad)
+        {
+            return  rad / Math.PI * 180.0;
+        }
+
+        private static double Deg2Rad(double deg)
+        {
+            return deg * Math.PI / 180.0;
+        }
+
+        private Color RGBFromRTheta(float r, float theta)
+        {
+            float fr = 0;
+            float fg = 0;
+            float fb = 0;
+            int eR = 0;
+            int eG = 0;
+            int eB = 0;
+
+            float off_angle = 90.0f;
+
+            fr = (float)((Math.Cos(Deg2Rad(theta - off_angle)) * r) + 0.5f);
+            fg = (float)((Math.Cos(Deg2Rad(theta + 120f - off_angle)) * r) + 0.5f);
+            fb = (float)((Math.Cos(Deg2Rad(theta + 240f - off_angle)) * r) + 0.5f);
+
+            if (fr < 0) eR = 0;
+            else if (fr > 1) eR = 255;
+            else eR = (byte)(fr * 255);
+
+            if (fg < 0) eG = 0;
+            else if (fg > 1) eG = 255;
+            else eG = (byte)(fg * 255);
+
+            if (fb < 0) eB = 0;
+            else if (fb > 1) eB = 255;
+            else eB = (byte)(fb * 255);
+
+            return Color.FromArgb(eR, eG, eB);
+        }
+
+        private void RThetaFromColor(Color color, out float r, out float theta)
+        {
+            // Normalizar para 0..1
+            double R = color.R / 255.0;
+            double G = color.G / 255.0;
+            double B = color.B / 255.0;
+
+            // Convertendo para o intervalo [-1, +1]
+            // Python: R1 = (R - 0.5) * 2
+            double R1 = (R - 0.5) * 2.0;
+            double G1 = (G - 0.5) * 2.0;
+            double B1 = (B - 0.5) * 2.0;
+
+            // Offsets em radianos
+            double off_angle = Deg2Rad(90);
+            double Rtheta = Deg2Rad(0) + off_angle;
+            double Btheta = Deg2Rad(120) + off_angle;
+            double Gtheta = Deg2Rad(240) + off_angle;
+
+            // Projetar cada canal no plano X/Y
+            double Rx = R1 * Math.Cos(Rtheta);
+            double Ry = R1 * Math.Sin(Rtheta);
+
+            double Gx = G1 * Math.Cos(Gtheta);
+            double Gy = G1 * Math.Sin(Gtheta);
+
+            double Bx = B1 * Math.Cos(Btheta);
+            double By = B1 * Math.Sin(Btheta);
+
+            // Soma vetorial
+            double Rx_total = Rx + Gx + Bx;
+            double Ry_total = Ry + Gy + By;
+
+            // Cálculo de r e theta
+            double r1 = Math.Sqrt(Rx_total * Rx_total + Ry_total * Ry_total) / 2.0;
+            double theta1 = Math.Atan2(Ry_total, Rx_total);
+
+            // Converter para float (se quiser manter 0..1)
+            r = (float)r1;
+
+            // Converter ângulo para graus se desejar
+            theta = (float)Rad2Deg(theta1);  // mantém radianos
         }
     }
 }

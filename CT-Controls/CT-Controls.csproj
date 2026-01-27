@@ -48,6 +48,12 @@
     <Compile Include="ColorPicker.Designer.cs">
       <DependentUpon>ColorPicker.cs</DependentUpon>
     </Compile>
+    <Compile Include="ColorPickerCircular.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="ColorPickerCircular.Designer.cs">
+      <DependentUpon>ColorPickerCircular.cs</DependentUpon>
+    </Compile>
     <Compile Include="ColorWheel.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -78,6 +84,9 @@
   <ItemGroup>
     <EmbeddedResource Include="ColorPicker.resx">
       <DependentUpon>ColorPicker.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ColorPickerCircular.resx">
+      <DependentUpon>ColorPickerCircular.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="NumericDisplay.resx">
       <DependentUpon>NumericDisplay.cs</DependentUpon>
