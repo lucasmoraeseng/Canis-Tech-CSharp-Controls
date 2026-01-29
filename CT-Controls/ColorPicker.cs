@@ -17,7 +17,7 @@ namespace CT_Controls
         // Internal controls
         //private readonly ColorWheel _wheel;
         //private readonly ColorPickerCircular _circularPicker;
-        private Color _color = Color.White;
+        private Color _color = Color.Red;
 
         // ============================================================
         // CONSTRUCTOR
@@ -31,10 +31,9 @@ namespace CT_Controls
             InitializeComponent();
 
             // Initial synchronization
-            _circularPicker.Hue = _wheel.Theta;
-
+            _circularPicker.InputColor = _wheel.SelectedColor;
+            _color = _circularPicker.SelectedColor;
         }
-
 
         // ============================================================
         // HSV STATE (read-only from outside)
@@ -75,14 +74,15 @@ namespace CT_Controls
         // ============================================================
         private void Wheel_ColorChanged(object sender, EventArgs e)
         {
-            var wheel = (ColorWheel)sender;
-            _circularPicker.Hue = wheel.Theta;
+            _circularPicker.InputColor = _wheel.SelectedColor;
+            _color = _circularPicker.SelectedColor;
+            OnColorChanged();
         }
 
         private void CircularPicker_CursorPositionChanged(object sender, EventArgs e)
         {
-            var picker = (ColorPickerCircular)sender;
-            _color = picker.SelectedColor;
+            _color = _circularPicker.SelectedColor;
+            OnColorChanged();
         }
 
 

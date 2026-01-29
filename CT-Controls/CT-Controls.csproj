@@ -103,6 +103,9 @@
     <EmbeddedResource Include="SaturationSlider.resx">
       <DependentUpon>SaturationSlider.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="TextDisplay.resx">
+      <DependentUpon>TextDisplay.cs</DependentUpon>
+    </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

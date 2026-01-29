@@ -33,20 +33,30 @@ namespace CT_Controls
 
         private void InitializeControls()
         {
-            // prepara labels (fornecidos pelo Designer) para desenho transparente
-            lblTitle.BackColor = Color.Transparent;
-            lblTitle.ForeColor = titleForeColor;
-            lblTitle.Text = titleText;
-            lblTitle.TextAlign = ContentAlignment.MiddleCenter;
+            // Usa labels do Designer (sem recriar)
+            lblTitle.AutoSize = false;
+            lblValue.AutoSize = false;
 
+            lblTitle.BackColor = Color.Transparent;
             lblValue.BackColor = Color.Transparent;
+
+            lblTitle.ForeColor = titleForeColor;
             lblValue.ForeColor = valueForeColor;
+
+            lblTitle.Text = titleText;
             lblValue.Text = valueText;
+
+            lblTitle.TextAlign = ContentAlignment.MiddleCenter;
             lblValue.TextAlign = ContentAlignment.MiddleCenter;
 
-            // escuta redimensionamento / fonte
+            lblTitle.Padding = innerPadding;
+            lblValue.Padding = innerPadding;
+
+            // reflow em size/font change
             this.SizeChanged += (s, e) => UpdateLayout();
             this.FontChanged += (s, e) => UpdateLayout();
+
+            UpdateLayout();
         }
 
         // --- Propriedades públicas ----------------
@@ -68,16 +78,34 @@ namespace CT_Controls
 
         [Browsable(true)]
         [Category("Appearance")]
+        [Description("Fonte do texto do título exibido no bloco colorido ")]
+        public Font TitleTextFont
+        {
+            get =>lblTitle.Font;
+            set
+            {
+                lblTitle.Font = value;
+                UpdateLayout();
+                Invalidate();
+            }
+        }
+
+        [Browsable(true)]
+        [Category("Appearance")]
+        [Description("Alinhamento do texto do título.")]
+        public ContentAlignment TitleTextAlign
+        {
+            get => lblTitle.TextAlign;
+            set { lblTitle.TextAlign = value; lblTitle.Invalidate(); }
+        }
+
+        [Browsable(true)]
+        [Category("Appearance")]
         [Description("Cor do texto do título.")]
         public Color TitleForeColor
         {
             get => titleForeColor;
-            set
-            {
-                titleForeColor = value;
-                lblTitle.ForeColor = titleForeColor;
-                lblTitle.Invalidate();
-            }
+            set { titleForeColor = value; lblTitle.ForeColor = titleForeColor; lblTitle.Invalidate(); }
         }
 
         [Browsable(true)]
@@ -93,6 +121,38 @@ namespace CT_Controls
                 UpdateLayout();
                 Invalidate();
             }
+        }
+
+        [Browsable(true)]
+        [Category("Appearance")]
+        [Description("Fonte do texto do título exibido no bloco colorido ")]
+        public Font ValueTextFont
+        {
+            get => lblValue.Font;
+            set
+            {
+                lblValue.Font = value;
+                UpdateLayout();
+                Invalidate();
+            }
+        }
+
+        [Browsable(true)]
+        [Category("Appearance")]
+        [Description("Alinhamento do texto do valor.")]
+        public ContentAlignment ValueTextAlign
+        {
+            get => lblValue.TextAlign;
+            set { lblValue.TextAlign = value; lblValue.Invalidate(); }
+        }
+
+        [Browsable(true)]
+        [Category("Appearance")]
+        [Description("Cor do texto do valor.")]
+        public Color ValueForeColor
+        {
+            get => valueForeColor;
+            set { valueForeColor = value; lblValue.ForeColor = valueForeColor; Invalidate(); }
         }
 
         [Browsable(true)]
@@ -124,15 +184,6 @@ namespace CT_Controls
 
         [Browsable(true)]
         [Category("Appearance")]
-        [Description("Cor do texto do valor.")]
-        public Color ValueForeColor
-        {
-            get => valueForeColor;
-            set { valueForeColor = value; lblValue.ForeColor = value; Invalidate(); }
-        }
-
-        [Browsable(true)]
-        [Category("Appearance")]
         [Description("Raio das bordas (em pixels).")]
         [DefaultValue(10)]
         public int CornerRadius
@@ -149,6 +200,22 @@ namespace CT_Controls
         {
             get => borderWidth;
             set { borderWidth = Math.Max(0, value); Invalidate(); }
+        }
+
+        [Browsable(true)]
+        [Category("Layout")]
+        [Description("Padding interno para os textos (aplicado em ambos os campos).")]
+        public Padding InnerPadding
+        {
+            get => innerPadding;
+            set
+            {
+                innerPadding = value;
+                lblTitle.Padding = innerPadding;
+                lblValue.Padding = innerPadding;
+                UpdateLayout();
+                Invalidate();
+            }
         }
 
         [Browsable(true)]
@@ -175,7 +242,6 @@ namespace CT_Controls
 
         private void UpdateLayout()
         {
-            // calcula área interna (dentro da borda)
             var client = ClientRectangle;
             var inner = new Rectangle(
                 client.X + borderWidth,
@@ -184,7 +250,7 @@ namespace CT_Controls
                 Math.Max(0, client.Height - borderWidth * 2)
             );
 
-            // Larguras de texto + padding (sem gap)
+            // Largura do título = medida do texto + padding
             int leftWidth = 0;
             if (showTitle && !string.IsNullOrEmpty(titleText))
             {
@@ -192,40 +258,38 @@ namespace CT_Controls
                 leftWidth = sz.Width + innerPadding.Left + innerPadding.Right;
             }
 
+            // Se o título não couber, compacta só o título
+            if (leftWidth > inner.Width)
+            {
+                leftWidth = inner.Width;
+            }
+
+            // Largura do valor = resto da área interna
             int rightWidth = 0;
-            if (showValue && !string.IsNullOrEmpty(valueText))
+            if (showValue)
             {
-                var sz = TextRenderer.MeasureText(valueText, this.Font);
-                rightWidth = sz.Width + innerPadding.Left + innerPadding.Right;
+                rightWidth = Math.Max(0, inner.Width - leftWidth);
             }
 
-            int totalNeeded = leftWidth + rightWidth;
-
-            // Se não couber, compacta proporcionalmente SEM gap
-            if (totalNeeded > inner.Width && totalNeeded > 0)
-            {
-                float scale = inner.Width / (float)Math.Max(1, totalNeeded);
-                if (showTitle) leftWidth = (int)Math.Max(0, leftWidth * scale);
-                if (showValue) rightWidth = (int)Math.Max(0, rightWidth * scale);
-            }
-
-            // Posiciona labels (encostados, sem gap)
-            int x = inner.X;
+            // Posiciona os labels
             if (showTitle && leftWidth > 0)
             {
-                var titleRect = new Rectangle(x, inner.Y, leftWidth, inner.Height);
-                lblTitle.Bounds = titleRect;
+                lblTitle.Bounds = new Rectangle(inner.X, inner.Y, leftWidth, inner.Height);
                 lblTitle.Font = this.Font;
-                lblTitle.TextAlign = ContentAlignment.MiddleCenter;
-                x += leftWidth; // encostado
+            }
+            else
+            {
+                lblTitle.Bounds = Rectangle.Empty;
             }
 
             if (showValue && rightWidth > 0)
             {
-                var valueRect = new Rectangle(inner.Right - rightWidth, inner.Y, rightWidth, inner.Height);
-                lblValue.Bounds = valueRect;
+                lblValue.Bounds = new Rectangle(inner.Right - rightWidth, inner.Y, rightWidth, inner.Height);
                 lblValue.Font = this.Font;
-                lblValue.TextAlign = ContentAlignment.MiddleCenter;
+            }
+            else
+            {
+                lblValue.Bounds = Rectangle.Empty;
             }
 
             Invalidate();
@@ -241,7 +305,7 @@ namespace CT_Controls
             var rect = ClientRectangle;
             if (rect.Width <= 0 || rect.Height <= 0) return;
 
-            // desenha borda externa arredondada (fundo do controle)
+            // borda/fundo externo arredondado
             using (var pathOuter = RoundedRectPath(rect, cornerRadius))
             using (var brushBackground = new SolidBrush(this.BackColor))
             using (var penBorder = new Pen(borderColor, borderWidth))
@@ -253,40 +317,30 @@ namespace CT_Controls
                 }
             }
 
-            // inner area (dentro da borda)
+            // área interna (dentro da borda)
             var innerRect = new Rectangle(
                 rect.X + borderWidth,
                 rect.Y + borderWidth,
                 Math.Max(0, rect.Width - borderWidth * 2),
                 Math.Max(0, rect.Height - borderWidth * 2)
             );
-
             if (innerRect.Width <= 0 || innerRect.Height <= 0) return;
 
-            // calcula larguras do título/valor (mesma lógica do UpdateLayout)
+            // Mesma lógica que UpdateLayout: leftWidth medido; rightWidth = restante
             int leftWidth = 0;
             if (showTitle && !string.IsNullOrEmpty(titleText))
             {
                 var sz = TextRenderer.MeasureText(titleText, this.Font);
                 leftWidth = sz.Width + innerPadding.Left + innerPadding.Right;
             }
-
-            int rightWidth = rect.Width - leftWidth;
-            //if (showValue && !string.IsNullOrEmpty(valueText))
-            //{
-            //    var sz = TextRenderer.MeasureText(valueText, this.Font);
-            //    rightWidth = sz.Width + innerPadding.Left + innerPadding.Right;
-            //}
-
-            int totalNeeded = leftWidth + rightWidth;
-            if (totalNeeded > innerRect.Width && totalNeeded > 0)
+            if (leftWidth > innerRect.Width)
             {
-                float scale = innerRect.Width / (float)Math.Max(1, totalNeeded);
-                if (showTitle) leftWidth = (int)Math.Max(0, leftWidth * scale);
-                if (showValue) rightWidth = (int)Math.Max(0, rightWidth * scale);
+                leftWidth = innerRect.Width;
             }
 
-            // desenha bloco do título (esquerdo) com cantos arredondados em todas as extremidades
+            int rightWidth = showValue ? Math.Max(0, innerRect.Width - leftWidth) : 0;
+
+            // Título (esquerda) com cantos arredondados à esquerda
             if (showTitle && leftWidth > 0)
             {
                 var leftRect = new Rectangle(innerRect.X, innerRect.Y, leftWidth, innerRect.Height);
@@ -297,7 +351,7 @@ namespace CT_Controls
                 }
             }
 
-            // desenha bloco do valor (direito) com cantos arredondados em todas as extremidades
+            // Valor (direita) com cantos arredondados à direita
             if (showValue && rightWidth > 0)
             {
                 var rightRect = new Rectangle(innerRect.Right - rightWidth, innerRect.Y, rightWidth, innerRect.Height);
@@ -307,10 +361,6 @@ namespace CT_Controls
                     g.FillPath(brush, pathRight);
                 }
             }
-
-            // Observação:
-            // Agora não há gap: os blocos encostam. Como você corrigiu o arredondamento
-            // no encontro, o resultado visual fica como desejado.
         }
 
         // cria GraphicsPath com cantos arredondados seletivos
@@ -331,21 +381,10 @@ namespace CT_Controls
             var br = new RectangleF(rect.Right - r * 2, rect.Bottom - r * 2, r * 2, r * 2);
             var bl = new RectangleF(rect.Left, rect.Bottom - r * 2, r * 2, r * 2);
 
-            // top-left
-            if (roundTopLeft) path.AddArc(tl, 180, 90);
-            else path.AddLine(rect.Left, rect.Top, rect.Left, rect.Top);
-
-            // top-right
-            if (roundTopRight) path.AddArc(tr, 270, 90);
-            else path.AddLine(rect.Right, rect.Top, rect.Right, rect.Top);
-
-            // bottom-right
-            if (roundBottomRight) path.AddArc(br, 0, 90);
-            else path.AddLine(rect.Right, rect.Bottom, rect.Right, rect.Bottom);
-
-            // bottom-left
-            if (roundBottomLeft) path.AddArc(bl, 90, 90);
-            else path.AddLine(rect.Left, rect.Bottom, rect.Left, rect.Bottom);
+            if (roundTopLeft) path.AddArc(tl, 180, 90); else path.AddLine(rect.Left, rect.Top, rect.Left, rect.Top);
+            if (roundTopRight) path.AddArc(tr, 270, 90); else path.AddLine(rect.Right, rect.Top, rect.Right, rect.Top);
+            if (roundBottomRight) path.AddArc(br, 0, 90); else path.AddLine(rect.Right, rect.Bottom, rect.Right, rect.Bottom);
+            if (roundBottomLeft) path.AddArc(bl, 90, 90); else path.AddLine(rect.Left, rect.Bottom, rect.Left, rect.Bottom);
 
             path.CloseFigure();
             return path;

@@ -16,10 +16,10 @@ namespace CT_Controls
         // Fields
         // =========================
 
-        private float _hue = 0f;                // Matiz (0..360)
         private float _cursorPosition = 0f;     // Ângulo cursor (0..360)
         private float _circularWidth = 0.15f;   // Proporção da espessura (0..1)
-        private Color _color = Color.Red;    // Cor selecionada
+        private Color _selectedColor = Color.Red;       // Cor selecionada
+        private Color _inputColor = Color.Red;       // Cor de entrada
 
         // =========================
         // Constructor
@@ -48,25 +48,33 @@ namespace CT_Controls
         [Description("")]
         public Color SelectedColor
         {
-            get => _color;
+            get => _selectedColor;
         }
 
         [Category("Behavior")]
         [Description("")]
-        public float Hue
+        public Color InputColor
         {
-            get => _hue;
+            get => _inputColor;
             set
             {
-                float v = Math.Max(0f, Math.Min(1f, value));
-                if (Math.Abs(_hue - v) < float.Epsilon)
+                if (_inputColor == value)
                     return;
 
-                _hue = v;
-                OnValueChanged();
+                _inputColor = value;
+
+                // Recalcula a cor atual baseada no ângulo do cursor
+                var newColor = ColorAtAngle(_cursorPosition, _inputColor);
+                if (newColor != _selectedColor)
+                {
+                    _selectedColor = newColor;
+                    OnValueChanged();
+                }
+
                 Invalidate();
             }
         }
+
 
         [Category("Behavior")]
         [Description("Cursor position in degrees (0..360).")]
@@ -115,6 +123,7 @@ namespace CT_Controls
 
         protected virtual void OnCursorPositionChanged()
         {
+            UpdateSelectedColor();
             CursorPositionChanged?.Invoke(this, EventArgs.Empty);
         }
 
@@ -123,6 +132,7 @@ namespace CT_Controls
 
         protected virtual void OnValueChanged()
         {
+            UpdateSelectedColor();
             ValueChanged?.Invoke(this, EventArgs.Empty);
         }
 
@@ -148,18 +158,30 @@ namespace CT_Controls
             Capture = false;
         }
 
+
         private void UpdateFromPoint(Point p)
         {
             float cx = Width / 2f;
             float cy = Height / 2f;
 
             float dx = p.X - cx;
-            float dy = (p.Y - cy) * -1f;
+            float dy = (p.Y - cy) * -1f; // você inverte o Y no desenho; mantive
 
             double ang = Math.Atan2(dy, dx) * 180f / Math.PI;
             if (ang < 0) ang += 360;
 
             CursorPosition = (float)ang;
+            Invalidate();
+        }
+
+        private void UpdateSelectedColor()
+        {
+            var newColor = ColorAtAngle(CursorPosition, _inputColor);
+            if (newColor != _selectedColor)
+            {
+                _selectedColor = newColor;
+                OnValueChanged();
+            }
         }
 
         // =========================
@@ -200,44 +222,31 @@ namespace CT_Controls
             );
             Graphics g = e.Graphics;
 
-
             using (GraphicsPath path = new GraphicsPath())
             {
                 path.FillMode = FillMode.Alternate;
                 path.AddEllipse(outer); // anel externo
                 path.AddEllipse(inner); // “furo” interno
 
-                // Defina as cores (você pode parametrizar se quiser)
-                Color colorTop = Color.Black;                   // topo (0%)
-                Color colorMiddle = HSVToRGB(_hue, 1f, 1f);        // meio (50%)
-                Color colorBottom = Color.White;                   // base (100%)
+                // Cores do gradiente vertical: topo preto, meio = hue, base branco
+                Color colorTop = Color.Black;
+                Color colorMiddle = _inputColor; // ✅ usa hue em graus
+                Color colorBottom = Color.White;
 
-                // Gradiente linear vertical no bounding box externo
                 using (var lgb = new LinearGradientBrush(outer, colorTop, colorBottom, LinearGradientMode.Vertical))
                 {
-                    // Define 3 pontos de interpolação: 0% (top), 50% (meio), 100% (bottom)
-                    //var blend = new ColorBlend(5)
-                    //{
-                    //    Colors = new[] { colorTop, colorTop, colorMiddle, colorBottom, colorBottom },
-                    //    Positions = new[] {0f,(_circularWidth / 2), 0.5f, 1-(_circularWidth/2),1f}
-                    //};
-
                     var blend = new ColorBlend(3)
                     {
-                        Colors = new[] { colorTop,  colorMiddle, colorBottom },
+                        Colors = new[] { colorTop, colorMiddle, colorBottom },
                         Positions = new[] { 0f, 0.5f, 1f }
                     };
 
                     lgb.InterpolationColors = blend;
-
-                    // Evita artefatos nas bordas do gradiente
                     lgb.WrapMode = WrapMode.TileFlipXY;
 
-                    // Preenche SOMENTE a área da rosca
                     g.FillPath(lgb, path);
                 }
             }
-
 
             DrawCursor(e.Graphics, outerDiameter, thickness, rect);
         }
@@ -265,7 +274,6 @@ namespace CT_Controls
 
             float cursorOuterDia = thickness;
             float cursorInnerDia = thickness * 0.7f;
-            float cursorRing = Math.Max(2f, cursorOuterDia * 0.45f);
 
             using (var pen = new Pen(Color.Black, 0.5f))
             using (var brush = new SolidBrush(Color.White))
@@ -339,6 +347,48 @@ namespace CT_Controls
 
         private static int Clamp(int v) => v < 0 ? 0 : (v > 255 ? 255 : v);
 
+        private static Color Lerp(Color a, Color b, float t)
+        {
+            t = Math.Max(0f, Math.Min(1f, t));
+            int r = (int)Math.Round(a.R + (b.R - a.R) * t);
+            int g = (int)Math.Round(a.G + (b.G - a.G) * t);
+            int bC = (int)Math.Round(a.B + (b.B - a.B) * t);
+            return Color.FromArgb(r, g, bC);
+        }
+
+        private Color ColorAtAngle(float angleDeg, Color inputColor)
+        {
+            // Normaliza 0..360
+            float a = ((angleDeg % 360f) + 360f) % 360f;
+
+            Color black = Color.Black;
+            Color white = Color.White;
+
+            if (a <= 90f)
+            {
+                // 0..90: inputColor -> black
+                float t = a / 90f;
+                return Lerp(inputColor, black, t);
+            }
+            else if (a <= 180f)
+            {
+                // 90..180: black -> inputColor
+                float t = (a - 90f) / 90f;
+                return Lerp(black, inputColor, t);
+            }
+            else if (a <= 270f)
+            {
+                // 180..270: inputColor -> white
+                float t = (a - 180f) / 90f;
+                return Lerp(inputColor, white, t);
+            }
+            else
+            {
+                // 270..360: white -> inputColor
+                float t = (a - 270f) / 90f;
+                return Lerp(white, inputColor, t);
+            }
+        }
 
     }
 }

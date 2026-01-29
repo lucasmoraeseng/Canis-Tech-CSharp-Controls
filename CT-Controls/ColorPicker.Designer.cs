@@ -40,13 +40,14 @@ namespace CT_Controls
             this._circularPicker.BackColor = System.Drawing.Color.Transparent;
             this._circularPicker.Controls.Add(this._wheel);
             this._circularPicker.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._circularPicker.Hue = 1F;
+            this._circularPicker.InputColor = System.Drawing.Color.Red; 
             this._circularPicker.Location = new System.Drawing.Point(0, 0);
             this._circularPicker.MinimumSize = new System.Drawing.Size(50, 50);
             this._circularPicker.Name = "_circularPicker";
             this._circularPicker.Padding = new System.Windows.Forms.Padding(10);
             this._circularPicker.Size = new System.Drawing.Size(50, 50);
             this._circularPicker.TabIndex = 1;
+            this._circularPicker.CursorPositionChanged += new System.EventHandler(this.CircularPicker_CursorPositionChanged);
             this._circularPicker.Resize += new System.EventHandler(this._circularPicker_Resize);
             // 
             // _wheel
@@ -61,6 +62,7 @@ namespace CT_Controls
             this._wheel.Size = new System.Drawing.Size(30, 30);
             this._wheel.TabIndex = 0;
             this._wheel.Theta = 90F;
+            this._wheel.ColorChanged += new System.EventHandler(this.Wheel_ColorChanged);
             // 
             // ColorPicker
             // 

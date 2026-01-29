@@ -30,7 +30,6 @@
         /// </summary>
         private void InitializeComponent()
         {
-            components = new System.ComponentModel.Container();
             this.lblTitle = new System.Windows.Forms.Label();
             this.lblValue = new System.Windows.Forms.Label();
             this.SuspendLayout();
@@ -45,7 +44,6 @@
             this.lblTitle.TabIndex = 0;
             this.lblTitle.Text = "Title";
             this.lblTitle.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            this.lblTitle.AutoSize = false;
             // 
             // lblValue
             // 
@@ -53,11 +51,10 @@
             this.lblValue.ForeColor = System.Drawing.SystemColors.ControlText;
             this.lblValue.Location = new System.Drawing.Point(86, 3);
             this.lblValue.Name = "lblValue";
-            this.lblValue.Size = new System.Drawing.Size(120, 24);
+            this.lblValue.Size = new System.Drawing.Size(111, 24);
             this.lblValue.TabIndex = 1;
             this.lblValue.Text = "0";
             this.lblValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            this.lblValue.AutoSize = false;
             // 
             // TextDisplay
             // 
@@ -68,6 +65,7 @@
             this.Name = "TextDisplay";
             this.Size = new System.Drawing.Size(200, 30);
             this.ResumeLayout(false);
+
         }
 
         #endregion

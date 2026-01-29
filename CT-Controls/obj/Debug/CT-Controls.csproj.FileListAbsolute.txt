@@ -22,3 +22,4 @@ C:\Users\lucas\Documents\Github\Canis-Tech-CSharp-Controls\CT-Controls\obj\Debug
 C:\Users\brsiluca\Documents\GitHub\Canis-Tech-CSharp-Controls\CT-Controls\obj\Debug\CT_Controls.ColorPickerCircular.resources
 C:\Users\brsiluca\Documents\GitHub\Canis-Tech-CSharp-Controls\CT-Controls\obj\Debug\CT_Controls.SaturationSlider.resources
 C:\Users\lucas\Documents\Github\Canis-Tech-CSharp-Controls\CT-Controls\obj\Debug\CT_Controls.ColorPickerCircular.resources
+C:\Users\brsiluca\Documents\GitHub\Canis-Tech-CSharp-Controls\CT-Controls\obj\Debug\CT_Controls.TextDisplay.resources

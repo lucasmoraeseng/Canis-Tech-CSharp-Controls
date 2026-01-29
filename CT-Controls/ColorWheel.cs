@@ -1,4 +1,5 @@
-﻿using System;
+﻿
+using System;
 using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -15,9 +16,43 @@ namespace CT_Controls
         private Bitmap _bitmap;
         private bool _mouseDown;
 
-        private float _r = 0f;          // 0..1
+        private float _r = 0f;          // 0..1 (normalizado)
         private float _theta = 0f;      // 0..360
         private Color _color = new Color();
+
+        // ===== Selector size/scaling =====
+        private float _selectorDiameterRatio = 0.06f; // 6% do menor lado do controle
+        private float _selectorStrokeRatio = 0.006f; // 0.6% do menor lado do controle
+
+        [Category("Appearance")]
+        [Description("Proporção do diâmetro do seletor em relação ao menor lado do controle (0..1). Ex.: 0.06 = 6%.")]
+        [DefaultValue(0.06f)]
+        public float SelectorDiameterRatio
+        {
+            get => _selectorDiameterRatio;
+            set
+            {
+                float v = Math.Max(0.0f, Math.Min(1.0f, value));
+                if (Math.Abs(_selectorDiameterRatio - v) < 0.0001f) return;
+                _selectorDiameterRatio = v;
+                Invalidate();
+            }
+        }
+
+        [Category("Appearance")]
+        [Description("Proporção da espessura do traço do seletor em relação ao menor lado do controle (0..1). Ex.: 0.006 = 0.6%.")]
+        [DefaultValue(0.006f)]
+        public float SelectorStrokeRatio
+        {
+            get => _selectorStrokeRatio;
+            set
+            {
+                float v = Math.Max(0.0f, Math.Min(0.1f, value));
+                if (Math.Abs(_selectorStrokeRatio - v) < 0.0001f) return;
+                _selectorStrokeRatio = v;
+                Invalidate();
+            }
+        }
 
         public ColorWheel()
         {
@@ -50,7 +85,7 @@ namespace CT_Controls
                 OnColorChanged();
                 Invalidate();
             }
-        }        
+        }
 
         [Category("Color")]
         [Description("R value from 0 to 1")]
@@ -66,7 +101,7 @@ namespace CT_Controls
                     return;
 
                 _r = v;
-                _color = RGBFromRTheta( _r, _theta);
+                _color = RGBFromRTheta(_r, _theta);
                 OnColorChanged();
                 Invalidate();
             }
@@ -128,24 +163,66 @@ namespace CT_Controls
             }
 
             DrawSelector(e.Graphics);
-
         }
 
         private void DrawSelector(Graphics g)
         {
             var center = new PointF(Width / 2f, Height / 2f);
+
+            // Mesmo raio que você usa para a imagem
             float radius = Math.Min(Width, Height) * 0.5f * 0.95f;
             float satRadius = _r * radius;
+
             float rad = (float)(_theta * Math.PI / 180.0);
 
             float x = center.X + (float)Math.Cos(rad) * satRadius;
-            float y = center.Y + ((float)Math.Sin(rad) * satRadius * -1f);
 
-            using (var outer = new Pen(Color.FromArgb(220, Color.Black), 2f))
-            using (var inner = new Pen(Color.FromArgb(200, Color.White), 1f))
+            // Mantém seu comportamento atual (Y invertido) para não alterar a UX:
+            float y = center.Y + ((float)Math.Sin(rad) * satRadius * -1f);
+            // Se quiser a convenção matemática (positivo para baixo), troque por:
+            // float y = center.Y + (float)Math.Sin(rad) * satRadius;
+
+            // --- Escala do seletor conforme o tamanho do controle ---
+            float baseSize = Math.Min(Width, Height);
+
+            // diâmetro do seletor (mínimo 6px para visibilidade)
+            float selDiameter = Math.Max(6f, baseSize * _selectorDiameterRatio);
+
+            // espessura das bordas (mínimo 1px)
+            float outerStroke = Math.Max(1f, baseSize * _selectorStrokeRatio);
+            float innerStroke = Math.Max(1f, (baseSize * _selectorStrokeRatio) * 0.7f);
+
+            float outerRadius = selDiameter / 2f;
+
+            // diâmetro interno ligeiramente menor para criar um aro duplo
+            float innerDiameter = Math.Max(2f, selDiameter - Math.Max(2f, outerStroke));
+            float innerRadius = innerDiameter / 2f;
+
+            using (var outer = new Pen(Color.FromArgb(220, Color.Black), outerStroke))
+            using (var inner = new Pen(Color.FromArgb(200, Color.White), innerStroke))
             {
-                g.DrawEllipse(outer, x - 6, y - 6, 12, 12);
-                g.DrawEllipse(inner, x - 5, y - 5, 10, 10);
+                var oldSmoothing = g.SmoothingMode;
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+
+                // círculo externo
+                g.DrawEllipse(
+                    outer,
+                    x - outerRadius,
+                    y - outerRadius,
+                    selDiameter,
+                    selDiameter
+                );
+
+                // círculo interno (menor)
+                g.DrawEllipse(
+                    inner,
+                    x - innerRadius,
+                    y - innerRadius,
+                    innerDiameter,
+                    innerDiameter
+                );
+
+                g.SmoothingMode = oldSmoothing;
             }
         }
 
@@ -180,13 +257,19 @@ namespace CT_Controls
             var center = new PointF(Width / 2f, Height / 2f);
 
             double dx = p.X - center.X;
-            double dy = p.Y - center.Y;
+            double dy = (p.Y - center.Y) * -1f;
 
             double angle = Math.Atan2(dy, dx);
-            double radius = Math.Sqrt(Math.Pow(dx,2) + Math.Pow(dy, 2));
+            double radius = Math.Sqrt(dx * dx + dy * dy);
 
-            _r = (float)radius;
+            // Normaliza 0..1 para acompanhar proporcionalmente após resize
+            double maxR = Math.Min(Width, Height) * 0.5 * 0.95;
+            _r = (float)Math.Max(0.0, Math.Min(1.0, radius / maxR));
+
             _theta = (float)(angle * 180.0 / Math.PI);
+            _color = RGBFromRTheta(_r, _theta);
+            // Se quiser normalizar para 0..360:
+            // if (_theta < 0) _theta += 360f;
 
             OnColorChanged();
             Invalidate();
@@ -229,13 +312,13 @@ namespace CT_Controls
                         continue;
 
                     // Ângulo em radianos
-                    double theta = Math.Atan2(dy, dx); // [-π, π] está ok para cos()
+                    double theta = Math.Atan2(dy, dx); // [-π, π]
 
-                    // r normalizado (0 no centro, 1 na borda), com deadzone no centro
+                    // r normalizado (0 no centro, 1 na borda)
                     float sat = Math.Min(1f, dist / maxR);
                     double r = sat;
 
-                    // --- Fórmula do Python (coseno com deslocamentos) ---
+                    // --- Mistura por cosseno (modelo Python convertido) ---
                     double r_ = Math.Cos(theta + SHIFT_BM) * r + 0.5;
                     double g_ = Math.Cos(theta - SHIFT_G + SHIFT_BM) * r + 0.5;
                     double b_ = Math.Cos(theta - SHIFT_B + SHIFT_BM) * r + 0.5;
@@ -269,7 +352,7 @@ namespace CT_Controls
 
         private static double Rad2Deg(double rad)
         {
-            return  rad / Math.PI * 180.0;
+            return rad / Math.PI * 180.0;
         }
 
         private static double Deg2Rad(double deg)
@@ -279,54 +362,32 @@ namespace CT_Controls
 
         private Color RGBFromRTheta(float r, float theta)
         {
-            float fr = 0;
-            float fg = 0;
-            float fb = 0;
-            int eR = 0;
-            int eG = 0;
-            int eB = 0;
+            float fr = (float)((Math.Cos(Deg2Rad(theta - 90f)) * r) + 0.5f);
+            float fg = (float)((Math.Cos(Deg2Rad(theta + 120f - 90f)) * r) + 0.5f);
+            float fb = (float)((Math.Cos(Deg2Rad(theta + 240f - 90f)) * r) + 0.5f);
 
-            float off_angle = 90.0f;
-
-            fr = (float)((Math.Cos(Deg2Rad(theta - off_angle)) * r) + 0.5f);
-            fg = (float)((Math.Cos(Deg2Rad(theta + 120f - off_angle)) * r) + 0.5f);
-            fb = (float)((Math.Cos(Deg2Rad(theta + 240f - off_angle)) * r) + 0.5f);
-
-            if (fr < 0) eR = 0;
-            else if (fr > 1) eR = 255;
-            else eR = (byte)(fr * 255);
-
-            if (fg < 0) eG = 0;
-            else if (fg > 1) eG = 255;
-            else eG = (byte)(fg * 255);
-
-            if (fb < 0) eB = 0;
-            else if (fb > 1) eB = 255;
-            else eB = (byte)(fb * 255);
+            int eR = fr < 0 ? 0 : (fr > 1 ? 255 : (byte)(fr * 255));
+            int eG = fg < 0 ? 0 : (fg > 1 ? 255 : (byte)(fg * 255));
+            int eB = fb < 0 ? 0 : (fb > 1 ? 255 : (byte)(fb * 255));
 
             return Color.FromArgb(eR, eG, eB);
         }
 
         private void RThetaFromColor(Color color, out float r, out float theta)
         {
-            // Normalizar para 0..1
             double R = color.R / 255.0;
             double G = color.G / 255.0;
             double B = color.B / 255.0;
 
-            // Convertendo para o intervalo [-1, +1]
-            // Python: R1 = (R - 0.5) * 2
             double R1 = (R - 0.5) * 2.0;
             double G1 = (G - 0.5) * 2.0;
             double B1 = (B - 0.5) * 2.0;
 
-            // Offsets em radianos
             double off_angle = Deg2Rad(90);
             double Rtheta = Deg2Rad(0) + off_angle;
             double Btheta = Deg2Rad(120) + off_angle;
             double Gtheta = Deg2Rad(240) + off_angle;
 
-            // Projetar cada canal no plano X/Y
             double Rx = R1 * Math.Cos(Rtheta);
             double Ry = R1 * Math.Sin(Rtheta);
 
@@ -336,19 +397,15 @@ namespace CT_Controls
             double Bx = B1 * Math.Cos(Btheta);
             double By = B1 * Math.Sin(Btheta);
 
-            // Soma vetorial
             double Rx_total = Rx + Gx + Bx;
             double Ry_total = Ry + Gy + By;
 
-            // Cálculo de r e theta
             double r1 = Math.Sqrt(Rx_total * Rx_total + Ry_total * Ry_total) / 2.0;
             double theta1 = Math.Atan2(Ry_total, Rx_total);
 
-            // Converter para float (se quiser manter 0..1)
-            r = (float)r1;
-
-            // Converter ângulo para graus se desejar
-            theta = (float)Rad2Deg(theta1);  // mantém radianos
+            r = (float)r1;                      // 0..1
+            theta = (float)Rad2Deg(theta1);     // graus
+            if (theta < 0) theta += 360f;
         }
     }
 }
